@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>简单文字RPG</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #game-container { width: 80%; margin: 0 auto; padding: 20px; }
+        #status-bar, #chat-log, #item-inventory { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
+        #action-buttons button, #location-buttons button { cursor: pointer; margin-right: 5px; }
+        #modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; }
+        .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-modal:hover, .close-modal:focus { color: black; text-decoration: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="status-bar">
+            <p>角色状态</p>
+            <div id="player-status"></div>
+        </div>
+        <div id="game-map">
+            <p id="location-description">你身处昏暗的地牢，准备探索未知的区域。</p>
+        </div>
+        <div id="location-buttons">
+            <!-- 地点按钮将通过JavaScript动态生成 -->
+        </div>
+        <div id="action-buttons">
+            <button id="attack-button">攻击</button>
+            <button id="item-button">使用道具</button>
+            <button id="talk-button">对话</button>
+            <button id="magic-button">使用魔法</button>
+            <button id="inventory-button">打开储物栏</button>
+        </div>
+        <div id="item-inventory" style="display: none;">
+            <h2>储物栏</h2>
+            <div id="inventory-items"><!-- 道具列表将通过JavaScript动态生成 --></div>
+        </div>
+        <div id="chat-log"></div>
+        <div id="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <p id="modal-message"></p>
+            </div>
+        </div>
+    </div>
+       <script>
+        const player = {
+            HP: 100,
+            MP: 50,
+            level: 1,
+            experience: 0,
+            attackPower: 10,
+            defense: 5,
+            gold: 0,
+            inventory: []
+        };
+        const enemies = [
+            { name: '地精', HP: 30, attackPower: 5 },
+            { name: '蝙蝠', HP: 20, attackPower: 3 }
+        ];
+        const locations = [
+            { name: '地牢', enemy: enemies[0], description: '你在一个昏暗的地牢里。' },
+            { name: '森林', enemy: enemies[1], description: '你置身于一个幽暗的森林中。' },
+            { name: '山脉', enemy: null, description: '你来到了崎岖的山脉。' }, // 使用null作为未定义敌人的占位符
+            { name: '河流', enemy: null, description: '你沿着河流行走。' }
+        ];
+        let currentEnemy = null;
+
+        function updatePlayerStatus() {
+            document.getElementById('player-status').textContent = `玩家HP: ${player.HP}, MP: ${player.MP}, 等级: ${player.level}, 经验值: ${player.experience}, 攻击力: ${player.attackPower}, 防御力: ${player.defense}, 金币: ${player.gold}`;
+        }
+
+        function addToChatLog(message) {
+            const chatLog = document.getElementById('chat-log');
+            const newMessage = document.createElement('p');
+            newMessage.textContent = message;
+            chatLog.appendChild(newMessage);
+            chatLog.scrollTop = chatLog.scrollHeight; // 自动滚动到聊天日志底部
+        }
+
+        function startBattle() {
+            currentEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+            addToChatLog(`你遭遇了一个${currentEnemy.name}！`);
+            battleLoop();
+        }
+
+        function battleLoop() {
+            if (player.HP <= 0 || currentEnemy.HP <= 0) {
+                endBattle();
+                return;
+            }
+            // 玩家攻击
+            currentEnemy.HP -= player.attackPower;
+            addToChatLog(`你攻击了${currentEnemy.name}，剩余HP: ${currentEnemy.HP}。`);
+            if (currentEnemy.HP <= 0) {
+                addToChatLog(`${currentEnemy.name}被击败了！`);
+                enemyDefeated();
+                return;
+            }
+            // 敌人攻击
+            player.HP -= currentEnemy.attackPower;
+            addToChatLog(`${currentEnemy.name}对你造成了${currentEnemy.attackPower}点伤害，你的HP: ${player.HP}。`);
+            setTimeout(battleLoop, 1000); // 简化的回合制战斗
+        }
+
+        function endBattle() {
+            if (player.HP > 0) {
+                player.experience += 50; // 假设战斗胜利获得50经验值
+                checkLevelUp();
+                addToChatLog(`战斗胜利，获得经验值。`);
+                // 可以添加获取金币和道具的逻辑
+            } else {
+                addToChatLog(`你被击败了！`);
+                // 可以添加玩家复活或重新开始的逻辑
+            }
+            updatePlayerStatus();
+            currentEnemy = null; // 重置当前敌人
+        }
+
+        function enemyDefeated() {
+            // 模拟敌人被击败后掉落道具
+            if (Math.random() < 0.5) {
+                const item = {
+                    name: '生命药水',
+                    effect: '恢复20HP',
+                    quantity: 1
+                };
+                player.inventory.push(item);
+                addToChatLog(`你获得了一个${item.name}！`);
+            }
+            updateInventoryUI();
+        }
+
+        function checkLevelUp() {
+            // 假设每100经验值提升1级
+            if (player.experience >= 100) {
+                player.level++;
+                player.experience -= 100;
+                player.attackPower += 2;
+                player.defense += 1;
+                addToChatLog(`恭喜，你升级了！现在等级为 ${player.level}。`);
+            }
+        }
+
+        function useItem(itemName) {
+            const item = player.inventory.find(i => i.name === itemName);
+            if (item) {
+                if (itemName === '生命药水') {
+                    player.HP += 20;
+                    player.HP = Math.min(player.HP, 100);
+                    item.quantity--;
+                    if (item.quantity <= 0) {
+                        player.inventory.splice(player.inventory.indexOf(item), 1);
+                    }
+                    addToChatLog(`你使用了${item.name}，HP恢复了一些。`);
+                }
+                updateInventoryUI();
+            } else {
+                addToChatLog(`你没有这个道具。`);
+            }
+        }
+
+        function showInventory() {
+            const inventory = document.getElementById('item-inventory');
+            inventory.style.display = inventory.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function updateInventoryUI() {
+            const inventoryItems = document.getElementById('inventory-items');
+            inventoryItems.innerHTML = '';
+            player.inventory.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.textContent = `${item.name} x${item.quantity}`;
+                inventoryItems.appendChild(itemElement);
+            });
+        }
+
+        function encounterEnemy(location) {
+            document.getElementById('location-description').textContent = location.description;
+            if (location.enemy) {
+                currentEnemy = location.enemy;
+                startBattle();
+            } else {
+                addToChatLog(`这里没有敌人。`);
+            }
+        }
+
+        // 绑定事件
+        document.getElementById('attack-button').addEventListener('click', startBattle);
+        document.getElementById('item-button').addEventListener('click', () => useItem('生命药水'));
+        document.getElementById('inventory-button').addEventListener('click', showInventory);
+        document.querySelector('.close-modal').addEventListener('click', closeModal);
+
+        // 初始化地点按钮
+        const locationButtonsContainer = document.getElementById('location-buttons');
+        locations.forEach(location => {
+            const locationButton = document.createElement('button');
+            locationButton.textContent = `探索 ${location.name}`;
+            locationButton.addEventListener('click', function() {
+                encounterEnemy(location);
+            });
+            locationButtonsContainer.appendChild(locationButton);
+        });
+        // 初始状态更新
+        updatePlayerStatus();
+        updateInventoryUI();
+    </script>
+</body>
+</html>
